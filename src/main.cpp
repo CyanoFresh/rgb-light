@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-//#include <Ticker.h>
 #include <ESP8266WebServerSecure.h>
+//#include <Ticker.h>
 
 #define RED D0
 #define GREEN D1
@@ -9,6 +9,7 @@
 
 const char *ssid = "RGB Stand #01";
 const char *password = "12345678";
+
 BearSSL::ESP8266WebServerSecure server(443);
 
 static const char serverCert[] PROGMEM = R"EOF(
@@ -125,7 +126,9 @@ void setup() {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid, password);
 
-    server.setRSACert(new BearSSL::X509List(serverCert), new BearSSL::PrivateKey(serverKey));
+    configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+
+    server.getServer().setRSACert(new BearSSL::X509List(serverCert), new BearSSL::PrivateKey(serverKey));
 
     server.on("/", HTTP_GET, handleRoot);
     server.on("/", HTTP_POST, handleUpdate);
