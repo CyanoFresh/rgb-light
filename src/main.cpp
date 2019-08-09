@@ -60,7 +60,9 @@ void blink() {
 
 void onlineCheckTick() {
     if (WiFi.softAPgetStationNum() == 0) {
-        blinkTimer.attach(1, blink);
+        if (!blinkTimer.active()) {
+            blinkTimer.attach(1, blink);
+        }
     } else {
         blinkTimer.detach();
         digitalWrite(LED_BUILTIN, HIGH);
