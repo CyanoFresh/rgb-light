@@ -15,12 +15,29 @@ ESP8266WebServer server(80);
 Ticker checkTimer;
 Ticker blinkTimer;
 
+bool on = false;
 uint16_t redValue = 0;
 uint16_t greenValue = 0;
 uint16_t blueValue = 0;
 
+void turnOn() {
+    on = true;
+
+    analogWrite(RED, redValue);
+    analogWrite(GREEN, greenValue);
+    analogWrite(BLUE, blueValue);
+}
+
+void turnOff() {
+    on = false;
+
+    analogWrite(RED, 0);
+    analogWrite(GREEN, 0);
+    analogWrite(BLUE, 0);
+}
+
 void handleRoot() {
-    String response = String(redValue) + "," + greenValue + "," + blueValue;
+    String response = String(on) + "," + redValue + "," + greenValue + "," + blueValue;
 
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Max-Age", "10000");
@@ -31,13 +48,16 @@ void handleRoot() {
 }
 
 void handleUpdate() {
-    redValue = server.arg(0).toInt();
-    greenValue = server.arg(1).toInt();
-    blueValue = server.arg(2).toInt();
+    on = server.arg(0).toInt();
+    redValue = server.arg(1).toInt();
+    greenValue = server.arg(2).toInt();
+    blueValue = server.arg(3).toInt();
 
-    analogWrite(D0, redValue);
-    analogWrite(D1, greenValue);
-    analogWrite(D2, blueValue);
+    if (on) {
+        turnOn();
+    } else {
+        turnOff();
+    }
 
     handleRoot();
 }
@@ -54,14 +74,12 @@ void handleNotFound() {
     }
 }
 
-void blink() {
-   digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) == HIGH ? LOW : HIGH);
-}
-
 void onlineCheckTick() {
     if (WiFi.softAPgetStationNum() == 0) {
         if (!blinkTimer.active()) {
-            blinkTimer.attach(1, blink);
+            blinkTimer.attach(1, []() {
+                digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) == HIGH ? LOW : HIGH);
+            });
         }
     } else {
         blinkTimer.detach();
@@ -75,9 +93,7 @@ void setup() {
     pinMode(D1, OUTPUT);
     pinMode(D2, OUTPUT);
 
-    analogWrite(RED, 0);
-    analogWrite(GREEN, 0);
-    analogWrite(BLUE, 0);
+    turnOff();
 
     Serial.begin(115200);
     Serial.println();
