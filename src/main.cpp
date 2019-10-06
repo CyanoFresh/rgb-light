@@ -2,30 +2,33 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <Ticker.h>
+#include <EEPROM.h>
 
 #define RED D0
 #define GREEN D1
 #define BLUE D2
 
-const char *ssid = "RGB Light 1";
+const char *ssid = "RGB Light 2";
 const char *password = "12345678";
 
 ESP8266WebServer server(80);
 
-Ticker checkTimer;
-Ticker blinkTimer;
+Ticker saveTimer;
 
 bool on = false;
-uint16_t redValue = 0;
-uint16_t greenValue = 0;
-uint16_t blueValue = 0;
+
+struct {
+    uint16_t redValue = 0;
+    uint16_t greenValue = 0;
+    uint16_t blueValue = 0;
+} values;
 
 void turnOn() {
     on = true;
 
-    analogWrite(RED, redValue);
-    analogWrite(GREEN, greenValue);
-    analogWrite(BLUE, blueValue);
+    analogWrite(RED, values.redValue);
+    analogWrite(GREEN, values.greenValue);
+    analogWrite(BLUE, values.blueValue);
 }
 
 void turnOff() {
@@ -37,7 +40,7 @@ void turnOff() {
 }
 
 void handleRoot() {
-    String response = String(on) + "," + redValue + "," + greenValue + "," + blueValue;
+    String response = String(on) + "," + values.redValue + "," + values.greenValue + "," + values.blueValue;
 
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Max-Age", "10000");
@@ -47,17 +50,29 @@ void handleRoot() {
     server.send(200, "text/plain", response);
 }
 
+void saveValues() {
+    EEPROM.put(0, values);
+    EEPROM.commit();
+
+    Serial.println("Values saved");
+    Serial.println(values.redValue);
+    Serial.println(values.greenValue);
+    Serial.println(values.blueValue);
+}
+
 void handleUpdate() {
     on = server.arg(0).toInt();
-    redValue = server.arg(1).toInt();
-    greenValue = server.arg(2).toInt();
-    blueValue = server.arg(3).toInt();
+    values.redValue = server.arg(1).toInt();
+    values.greenValue = server.arg(2).toInt();
+    values.blueValue = server.arg(3).toInt();
 
     if (on) {
         turnOn();
     } else {
         turnOff();
     }
+
+    saveTimer.once(2, saveValues);
 
     handleRoot();
 }
@@ -74,29 +89,25 @@ void handleNotFound() {
     }
 }
 
-void onlineCheckTick() {
-    if (WiFi.softAPgetStationNum() == 0) {
-        if (!blinkTimer.active()) {
-            blinkTimer.attach(1, []() {
-                digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) == HIGH ? LOW : HIGH);
-            });
-        }
-    } else {
-        blinkTimer.detach();
-        digitalWrite(LED_BUILTIN, HIGH);
-    }
-}
-
 void setup() {
-    pinMode(LED_BUILTIN, OUTPUT);
     pinMode(D0, OUTPUT);
     pinMode(D1, OUTPUT);
     pinMode(D2, OUTPUT);
 
-    turnOff();
-
     Serial.begin(115200);
     Serial.println();
+
+    EEPROM.begin(sizeof(values));
+
+    EEPROM.get(0, values);
+
+    turnOn();
+
+    Serial.println("Loaded values:");
+
+    Serial.println(values.redValue);
+    Serial.println(values.greenValue);
+    Serial.println(values.blueValue);
 
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid, password);
@@ -107,8 +118,6 @@ void setup() {
 
     server.begin();
     Serial.println("HTTP server started");
-
-    checkTimer.attach_ms(300, onlineCheckTick);
 }
 
 void loop() {

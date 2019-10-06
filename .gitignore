@@ -4,6 +4,6 @@
 .vscode/launch.json
 .vscode/ipch
 
-cmake-build-debug
+cmake-build-*
 CMakeListsPrivate.txt
 .idea
