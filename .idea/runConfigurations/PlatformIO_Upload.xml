@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PlatformIO Upload" type="platformio" factoryName="PlatformIO Upload" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="rgb-light-device" TARGET_NAME="Production" CONFIG_NAME="d1_mini" RUN_TARGET_PROJECT_NAME="rgb-light-device" RUN_TARGET_NAME="Production">
+    <method v="2" />
+  </configuration>
+</component>

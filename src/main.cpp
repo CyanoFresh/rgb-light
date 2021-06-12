@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <Ticker.h>
@@ -8,8 +9,11 @@
 #define GREEN D1
 #define BLUE D2
 
-const char *ssid = "RGB Light 2";
+String ssid = "RGB Light " + WiFi.macAddress();
 const char *password = "12345678";
+
+const int batteryLowest = 665;
+const int batteryHighest = 876;
 
 ESP8266WebServer server(80);
 
@@ -22,6 +26,10 @@ struct {
     uint16_t greenValue = 0;
     uint16_t blueValue = 0;
 } values;
+
+long adcToPercent(long x) {
+    return (x - batteryLowest) * 100 / (batteryHighest - batteryLowest);
+}
 
 void turnOn() {
     on = true;
@@ -40,7 +48,9 @@ void turnOff() {
 }
 
 void handleRoot() {
-    String response = String(on) + "," + values.redValue + "," + values.greenValue + "," + values.blueValue;
+    String response =
+            String(on) + "," + values.redValue + "," + values.greenValue + "," + values.blueValue + "," +
+                    adcToPercent(analogRead(0));
 
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Max-Age", "10000");
@@ -112,14 +122,52 @@ void setup() {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid, password);
 
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else { // U_FS
+            type = "filesystem";
+        }
+
+        // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+        Serial.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) {
+            Serial.println("Auth Failed");
+        } else if (error == OTA_BEGIN_ERROR) {
+            Serial.println("Begin Failed");
+        } else if (error == OTA_CONNECT_ERROR) {
+            Serial.println("Connect Failed");
+        } else if (error == OTA_RECEIVE_ERROR) {
+            Serial.println("Receive Failed");
+        } else if (error == OTA_END_ERROR) {
+            Serial.println("End Failed");
+        }
+    });
+    ArduinoOTA.begin();
+    Serial.println("OTA server started");
+
     server.on("/", HTTP_GET, handleRoot);
     server.on("/", HTTP_POST, handleUpdate);
     server.onNotFound(handleNotFound);
 
     server.begin();
     Serial.println("HTTP server started");
+
+    Serial.print("IP address: ");
+    Serial.println(WiFi.softAPIP());
 }
 
 void loop() {
     server.handleClient();
+    ArduinoOTA.handle();
 }
